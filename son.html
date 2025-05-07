@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yapılacaklar Uygulaması</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.3.4/axios.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            border-radius: 5px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2, h3 {
+            color: #333;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            margin: 5px 0;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button.delete {
+            background-color: #f44336;
+        }
+        button.delete:hover {
+            background-color: #d32f2f;
+        }
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            display: inline-block;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .login-section, .lists-section, .items-section {
+            margin-bottom: 20px;
+        }
+        .todo-list {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 10px 0;
+            padding: 10px;
+        }
+        .todo-list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .todo-item {
+            border-bottom: 1px solid #eee;
+            padding: 10px 0;
+        }
+        .todo-item:last-child {
+            border-bottom: none;
+        }
+        .progress-container {
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            height: 20px;
+            border-radius: 10px;
+            background-color: #4CAF50;
+        }
+        .completed {
+            text-decoration: line-through;
+            color: gray;
+            background-color: #f0f0f0;
+            border-left: 3px solid #4CAF50;
+            padding-left: 10px;
+        }
+        .active-section {
+            display: block;
+        }
+        .hidden-section {
+            display: none;
+        }
+        .user-info {
+            background-color: #e9e9e9;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .error {
+            color: red;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Yapılacaklar Uygulaması</h1>
+        
+        <div id="auth-error" class="error"></div>
+        
+        <div id="login-section" class="login-section active-section">
+            <h2>Giriş</h2>
+            <div>
+                <label for="username">Kullanıcı Adı:</label>
+                <input type="text" id="username" placeholder="Kullanıcı Adı">
+            </div>
+            <div>
+                <label for="password">Şifre:</label>
+                <input type="password" id="password" placeholder="Şifre">
+            </div>
+            <button id="login-btn">Giriş</button>
+            <p>Mevcut kullanıcılar:<br>
+               - normal / sifre<br>
+               - admin / admin123</p>
+        </div>
+        
+        <div id="app-section" class="hidden-section">
+            <div class="user-info">
+                <div>Giriş yapan: <span id="current-user"></span></div>
+                <button id="logout-btn">Çıkış</button>
+            </div>
+            
+            <div id="lists-section" class="lists-section active-section">
+                <h2>Yapılacaklar Listelerim</h2>
+                <div>
+                    <input type="text" id="new-list-name" placeholder="Yeni liste adı">
+                    <button id="create-list-btn">Yeni Liste Oluştur</button>
+                </div>
+                <div id="lists-container"></div>
+            </div>
+            
+            <div id="items-section" class="items-section hidden-section">
+                <h2>Liste Öğeleri: <span id="current-list-name"></span></h2>
+                <div id="current-list-id" style="display: none;"></div>
+                <div>
+                    <input type="text" id="new-item-content" placeholder="Yeni öğe içeriği">
+                    <div style="margin: 10px 0;">
+                        <label>
+                            <input type="checkbox" id="new-item-completed"> Tamamlandı olarak ekle
+                        </label>
+                    </div>
+                    <button id="create-item-btn">Öğe Ekle</button>
+                </div>
+                <div id="items-container"></div>
+                <button id="back-to-lists">Listelere Dön</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API Yapılandırması
+        const API_URL = 'http://localhost:8080';
+        let authToken = '';
+        let currentUser = '';
+        let userType = 0;
+        let DEBUG = true; // DEBUG modu açık
+
+        // DOM Elemanları
+        const loginSection = document.getElementById('login-section');
+        const appSection = document.getElementById('app-section');
+        const listsSection = document.getElementById('lists-section');
+        const itemsSection = document.getElementById('items-section');
+        const listsContainer = document.getElementById('lists-container');
+        const itemsContainer = document.getElementById('items-container');
+        const currentListName = document.getElementById('current-list-name');
+        const currentListId = document.getElementById('current-list-id');
+        const currentUserElem = document.getElementById('current-user');
+        const backToListsBtn = document.getElementById('back-to-lists');
+        const authErrorElem = document.getElementById('auth-error');
+
+        // Yardımcı fonksiyon - DEBUG mesajları için
+        function debug(message, data) {
+            if (DEBUG) {
+                console.log(`[DEBUG] ${message}`, data);
+            }
+        }
+
+        // Kimlik Doğrulama Başlığı ile API İstemcisi
+        const apiClient = axios.create({
+            baseURL: API_URL,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        // Token değiştiğinde yetkilendirme başlığını güncelle
+        function updateAuthHeader(token) {
+            authToken = token;
+            if (token) {
+                apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+                debug("Auth token ayarlandı", token);
+            } else {
+                delete apiClient.defaults.headers.common['Authorization'];
+                debug("Auth token silindi", null);
+            }
+        }
+
+        // Giriş İşleyicisi
+        document.getElementById('login-btn').addEventListener('click', async () => {
+            const kullaniciAdi = document.getElementById('username').value;
+            const sifre = document.getElementById('password').value;
+            debug('Giriş denemesi:', {kullaniciAdi, sifre});
+            
+            try {
+                const response = await apiClient.post('/giris', { username: kullaniciAdi, password: sifre });
+                debug('Giriş yanıtı:', response.data);
+                updateAuthHeader(response.data.token);
+                
+                // Kullanıcı bilgilerini almak için JWT'yi çöz
+                const payload = JSON.parse(atob(response.data.token.split('.')[1]));
+                currentUser = payload.username;
+                userType = payload.userType;
+                
+                // Arayüzü güncelle
+                currentUserElem.textContent = `${currentUser} (${userType === 2 ? 'Admin' : 'Normal'})`;
+                loginSection.classList.remove('active-section');
+                loginSection.classList.add('hidden-section');
+                appSection.classList.remove('hidden-section');
+                appSection.classList.add('active-section');
+                
+                // Listeleri yükle
+                loadLists();
+                
+                // Hatayı sıfırla
+                authErrorElem.textContent = '';
+            } catch (error) {
+                authErrorElem.textContent = 'Giriş başarısız: ' + (error.response?.data?.hata || 'Bilinmeyen hata');
+                console.error('Giriş hatası:', error);
+            }
+        });
+
+        // Çıkış İşleyicisi
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            updateAuthHeader('');
+            loginSection.classList.add('active-section');
+            loginSection.classList.remove('hidden-section');
+            appSection.classList.add('hidden-section');
+            appSection.classList.remove('active-section');
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        });
+
+        // Yapılacaklar Listelerini Yükle
+        async function loadLists() {
+            try {
+                // Görünüm değiştirme
+                listsSection.classList.add('active-section');
+                listsSection.classList.remove('hidden-section');
+                itemsSection.classList.add('hidden-section');
+                itemsSection.classList.remove('active-section');
+                
+                debug("Listeler yükleniyor", null);
+                const response = await apiClient.get('/api/listeler');
+                const listeler = response.data;
+                debug("Yüklenen listeler", listeler);
+                
+                listsContainer.innerHTML = '';
+                
+                if (listeler.length === 0) {
+                    listsContainer.innerHTML = '<p>Liste bulunamadı. İlk listenizi oluşturun!</p>';
+                    return;
+                }
+                
+                listeler.forEach(liste => {
+                    const listElement = document.createElement('div');
+                    listElement.className = 'todo-list';
+                    
+                    const listHeader = document.createElement('div');
+                    listHeader.className = 'todo-list-header';
+                    
+                    const listTitle = document.createElement('h3');
+                    listTitle.textContent = liste.name;
+                    
+                    const listActions = document.createElement('div');
+                    
+                    const viewBtn = document.createElement('button');
+                    viewBtn.textContent = 'Öğeleri Görüntüle';
+                    viewBtn.addEventListener('click', () => {
+                        // Kontrol:
+                        if (!liste.id) {
+                            alert("Geçersiz liste seçimi");
+                            return;
+                        }
+                        currentListId.textContent = liste.id;
+                        currentListName.textContent = liste.name;
+                        loadItems(liste.id, liste.name);
+                    });
+                    
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.textContent = 'Sil';
+                    deleteBtn.className = 'delete';
+                    deleteBtn.addEventListener('click', () => deleteList(liste.id));
+                    
+                    listActions.appendChild(viewBtn);
+                    listActions.appendChild(deleteBtn);
+                    
+                    listHeader.appendChild(listTitle);
+                    listHeader.appendChild(listActions);
+                    
+                    const progressContainer = document.createElement('div');
+                    progressContainer.className = 'progress-container';
+                    
+                    const progressBar = document.createElement('div');
+                    progressBar.className = 'progress-bar';
+                    progressBar.style.width = `${liste.completionPercentage}%`;
+                    
+                    const progressText = document.createElement('div');
+                    progressText.textContent = `%${liste.completionPercentage} Tamamlandı`;
+                    progressText.style.textAlign = 'center';
+                    
+                    progressContainer.appendChild(progressBar);
+                    
+                    listElement.appendChild(listHeader);
+                    listElement.appendChild(progressContainer);
+                    listElement.appendChild(progressText);
+                    
+                    listsContainer.appendChild(listElement);
+                });
+            } catch (error) {
+                console.error('Listeleri yükleme hatası:', error);
+                listsContainer.innerHTML = '<p class="error">Listeleri yüklerken hata oluştu. Lütfen tekrar deneyin.</p>';
+                
+                // Hata detayını göster
+                if (error.response) {
+                    console.error('Sunucu yanıtı:', error.response.data);
+                }
+            }
+        }
+
+        // Yeni bir Yapılacaklar Listesi oluştur
+        document.getElementById('create-list-btn').addEventListener('click', async () => {
+            const listeAdi = document.getElementById('new-list-name').value;
+            
+            if (!listeAdi.trim()) {
+                alert('Liste adı boş olamaz');
+                return;
+            }
+            
+            try {
+                debug("Yeni liste oluşturuluyor", {listeAdi});
+                await apiClient.post('/api/listeler', { name: listeAdi });
+                document.getElementById('new-list-name').value = '';
+                loadLists();
+            } catch (error) {
+                console.error('Liste oluşturma hatası:', error);
+                alert('Liste oluşturma başarısız: ' + (error.response?.data?.hata || 'Bilinmeyen hata'));
+            }
+        });
+
+        // Yapılacaklar Listesini Sil
+        async function deleteList(listeId) {
+            if (!confirm('Bu listeyi silmek istediğinizden emin misiniz?')) {
+                return;
+            }
+            
+            try {
+                debug("Liste siliniyor", {listeId});
+                await apiClient.delete(`/api/listeler/${listeId}`);
+                loadLists();
+            } catch (error) {
+                console.error('Liste silme hatası:', error);
+                alert('Liste silme başarısız: ' + (error.response?.data?.hata || 'Bilinmeyen hata'));
+            }
+        }
+
+        // Bir liste için Yapılacak Öğeleri Yükle
+        async function loadItems(listeId, listeAdi) {
+            // Kontrol:
+            if (!listeId) {
+                alert("Lütfen önce geçerli bir liste seçin!");
+                return;
+            }
+            
+            try {
+                // Liste görünümünü gizle, öğe görünümünü göster
+                listsSection.classList.remove('active-section');
+                listsSection.classList.add('hidden-section');
+                itemsSection.classList.remove('hidden-section');
+                itemsSection.classList.add('active-section');
+                
+                debug("Öğeler yükleniyor", {listeId, listeAdi});
+                const response = await apiClient.get(`/api/listeler/${listeId}/ogeler`);
+                const ogeler = response.data;
+                
+                debug('Yüklenen öğeler:', ogeler);
+                
+                // Arayüzü güncelle
+                currentListName.textContent = listeAdi;
+                currentListId.textContent = listeId;
+                
+                itemsContainer.innerHTML = '';
+                
+                if (ogeler.length === 0) {
+                    itemsContainer.innerHTML = '<p>Bu listede öğe yok. İlk öğenizi ekleyin!</p>';
+                    return;
+                }
+                
+                ogeler.forEach(oge => {
+                    const itemElement = document.createElement('div');
+                    itemElement.className = 'todo-item';
+                    if (oge.completed) {
+                        itemElement.classList.add('completed');
+                    }
+                    
+                    const itemContent = document.createElement('div');
+                    itemContent.style.display = 'flex';
+                    itemContent.style.justifyContent = 'space-between';
+                    itemContent.style.alignItems = 'center';
+                    
+                    const itemText = document.createElement('span');
+                    itemText.textContent = oge.content;
+                    
+                    const itemActions = document.createElement('div');
+                    
+                    const toggleBtn = document.createElement('button');
+                    toggleBtn.textContent = oge.completed ? 'Tamamlanmadı Olarak İşaretle' : 'Tamamlandı Olarak İşaretle';
+                    toggleBtn.addEventListener('click', () => toggleItemStatus(oge.id, !oge.completed));
+                    
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.textContent = 'Sil';
+                    deleteBtn.className = 'delete';
+                    deleteBtn.addEventListener('click', () => deleteItem(oge.id));
+                    
+                    itemActions.appendChild(toggleBtn);
+                    itemActions.appendChild(deleteBtn);
+                    
+                    itemContent.appendChild(itemText);
+                    itemContent.appendChild(itemActions);
+                    
+                    itemElement.appendChild(itemContent);
+                    itemsContainer.appendChild(itemElement);
+                });
+            } catch (error) {
+                console.error('Öğeleri yükleme hatası:', error);
+                itemsContainer.innerHTML = '<p class="error">Öğeleri yüklerken hata oluştu. Lütfen tekrar deneyin.</p>';
+                
+                // Hata detayını göster
+                if (error.response) {
+                    console.error('Yanıt durumu:', error.response.status);
+                    console.error('Yanıt verileri:', error.response.data);
+                }
+            }
+        }
+
+        // Yeni bir Yapılacak Öğe oluştur
+        document.getElementById('create-item-btn').addEventListener('click', async () => {
+            const ogeIcerigi = document.getElementById('new-item-content').value;
+            const tamamlandi = document.getElementById('new-item-completed').checked;
+            const listeId = currentListId.textContent;
+            
+            debug('Öğe ekleniyor', {listeId, ogeIcerigi, tamamlandi});
+            
+            // Doğrulamalar:
+            if (!listeId) {
+                alert("Lütfen önce bir liste seçin!");
+                return;
+            }
+            if (!ogeIcerigi.trim()) {
+                alert('Öğe içeriği boş olamaz');
+                return;
+            }
+            
+            try {
+                const response = await apiClient.post(`/api/listeler/${listeId}/ogeler`, { 
+                    content: ogeIcerigi,
+                    completed: tamamlandi
+                });
+                
+                debug('Öğe ekleme yanıtı:', response.data);
+                
+                document.getElementById('new-item-content').value = '';
+                document.getElementById('new-item-completed').checked = false;
+                loadItems(listeId, currentListName.textContent);
+            } catch (error) {
+                console.error('Öğe oluşturma hatası:', error);
+                
+                // Daha detaylı hata bilgisi göster
+                if (error.response) {
+                    console.error('Yanıt durumu:', error.response.status);
+                    console.error('Yanıt verileri:', error.response.data);
+                    alert('Öğe oluşturma başarısız: ' + (error.response.data?.hata || 'Bilinmeyen hata'));
+                } else {
+                    alert('Öğe oluşturma başarısız: Sunucuya bağlanılamadı.');
+                }
+            }
+        });
+
+        // Yapılacak Öğe durumunu değiştir (tamamlandı/tamamlanmadı)
+        async function toggleItemStatus(ogeId, tamamlandi) {
+            try {
+                debug("Öğe durumu değiştiriliyor", {ogeId, tamamlandi});
+                
+                // Sadece gerekli alanları gönder
+                const updateData = {
+                    completed: tamamlandi
+                };
+                
+                debug("Gönderilecek güncelleme verisi:", updateData);
+                
+                const updateResponse = await apiClient.put(`/api/ogeler/${ogeId}`, updateData);
+                debug("Güncelleme yanıtı:", updateResponse.data);
+                
+                // Öğeleri yeniden yükle
+                await loadItems(currentListId.textContent, currentListName.textContent);
+            } catch (error) {
+                console.error('Öğe güncelleme hatası:', error);
+                
+                let errorMessage = 'Öğe durumunu güncelleme başarısız: ';
+                if (error.response) {
+                    console.error('Yanıt durumu:', error.response.status);
+                    console.error('Yanıt verileri:', error.response.data);
+                    
+                    // Sunucudan gelen detaylı hata mesajını göster
+                    if (error.response.data && error.response.data.detay) {
+                        errorMessage += error.response.data.detay;
+                    } else if (error.response.data && error.response.data.hata) {
+                        errorMessage += error.response.data.hata;
+                    } else {
+                        errorMessage += 'Bilinmeyen hata';
+                    }
+                } else {
+                    errorMessage += 'Sunucuya bağlanılamadı.';
+                }
+                
+                alert(errorMessage);
+            }
+        }
+        
+        // Bir Yapılacak Öğe sil
+        async function deleteItem(ogeId) {
+            if (!confirm('Bu öğeyi silmek istediğinizden emin misiniz?')) {
+                return;
+            }
+            
+            try {
+                debug("Öğe siliniyor", {ogeId});
+                await apiClient.delete(`/api/ogeler/${ogeId}`);
+                loadItems(currentListId.textContent, currentListName.textContent);
+            } catch (error) {
+                console.error('Öğe silme hatası:', error);
+                
+                // Daha detaylı hata bilgisi göster
+                if (error.response) {
+                    console.error('Yanıt durumu:', error.response.status);
+                    console.error('Yanıt verileri:', error.response.data);
+                    alert('Öğe silme başarısız: ' + (error.response.data?.hata || 'Bilinmeyen hata'));
+                } else {
+                    alert('Öğe silme başarısız: Sunucuya bağlanılamadı.');
+                }
+            }
+        }
+
+        // Listelere Dön Butonu İşleyicisi
+        backToListsBtn.addEventListener('click', () => {
+            loadLists();
+        });
+    </script>
+</body>
+</html>
