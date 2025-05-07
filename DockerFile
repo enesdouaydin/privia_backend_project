@@ -33,5 +33,6 @@ COPY --from=builder /app/todoapp .
 ENV PORT=8080
 EXPOSE 8080
 
+
 # Uygulamayı başlat
 CMD ["./todoapp"]
