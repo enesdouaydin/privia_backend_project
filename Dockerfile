@@ -24,7 +24,7 @@ WORKDIR /app
 
 # Binary ve statik dosyaları kopyala
 COPY --from=builder /app/privia_backend .
-COPY --from=builder /app/son.html .
+COPY --from=builder /app/son.html . # HTML dosyasını kopyala
 
 # Railway için gerekli ortam değişkeni
 ENV PORT=8080
