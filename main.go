@@ -425,10 +425,11 @@ func main() {
 
 		c.Status(http.StatusNoContent)
 	})
-
+	router.Run(":" + port)
 	// Sunucuyu başlat
 	log.Println("Sunucu 8080 portunda başlatılıyor...")
 	log.Fatal(http.ListenAndServe(":8080", router))
+
 }
 
 // Rotaları korumak için kimlik doğrulama ara katmanı
