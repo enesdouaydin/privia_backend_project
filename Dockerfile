@@ -1,38 +1,34 @@
 # Build aşaması
 FROM golang:1.20-alpine AS builder
 
-# Gerekli paketleri yükle
-RUN apk add --no-cache gcc musl-dev
+# Gerekli bağımlılıklar
+RUN apk add --no-cache gcc musl-dev git
 
-# Çalışma dizini
 WORKDIR /app
 
-# Go modül dosyalarını kopyala ve bağımlılıkları indir
+# Önce modülleri kopyala
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Tüm kaynak kodları kopyala
+# Tüm kaynak dosyaları kopyala
 COPY . .
 
-# Uygulamayı derle
-RUN go build -o todoapp .
+# Binary'yi derle
+RUN go build -o privia_backend .
 
-# Final imaj
+# Runtime aşaması
 FROM alpine:latest
-
-# Sertifikaları yükle
 RUN apk --no-cache add ca-certificates
 
-# Çalışma dizini
-WORKDIR /root/
+WORKDIR /app
 
-# Derlenen uygulamayı kopyala
-COPY --from=builder /app/todoapp .
+# Binary ve statik dosyaları kopyala
+COPY --from=builder /app/privia_backend .
+COPY --from=builder /app/son.html .
 
-# Railway için port ayarla
+# Railway için gerekli ortam değişkeni
 ENV PORT=8080
 EXPOSE 8080
 
-
-# Uygulamayı başlat
-CMD ["./todoapp"]
+# Çalıştırma komutu
+CMD ["./privia_backend"]

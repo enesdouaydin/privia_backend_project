@@ -1,10 +1,7 @@
 [build]
 builder = "dockerfile"
-buildCommand = ""
+build_command = "docker build -t privia_backend ."
 
 [deploy]
-startCommand = ""
-healthcheckPath = "/"
-healthcheckTimeout = 100
-restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 10
+start_command = "./privia_backend"
+healthcheck_path = "/"

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -18,9 +20,22 @@ var jwtSecretKey = []byte("guvenli_gizli_anahtar")
 func main() {
 	router := gin.Default()
 
-	// Statik dosyaları ve HTML'i servis etmek için:
-	router.LoadHTMLGlob("*.html")        // HTML dosyalarını yükle
-	router.Static("/static", "./static") // CSS/JS dosyaları için (isteğe bağlı)
+	// HTML template yükleme (Docker içi yol)
+	router.LoadHTMLFiles(filepath.Join("/app", "son.html"))
+
+	// Ana sayfa endpoint'i
+	router.GET("/", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "son.html", nil)
+	})
+
+	// PORT ayarı (Railway uyumlu)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	// Sunucuyu başlat
+	router.Run(":" + port)
 
 	// Ana sayfa için route ekleyin:
 	router.GET("/", func(c *gin.Context) {
