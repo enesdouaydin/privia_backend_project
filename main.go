@@ -27,6 +27,11 @@ func main() {
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
+	router.GET("/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"mesaj": "Todo API çalışıyor 🚀",
+		})
+	})
 
 	// Servisleri ve repository'leri başlat
 	kullaniciRepo := NewUserRepository()
