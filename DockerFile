@@ -1,13 +1,14 @@
+# Build aşaması
 FROM golang:1.20-alpine AS builder
 
 # Gerekli paketleri yükle
 RUN apk add --no-cache gcc musl-dev
 
-# Çalışma dizinini ayarla
+# Çalışma dizini
 WORKDIR /app
 
-# Go modül dosyasını kopyala ve bağımlılıkları indir
-COPY go.mod ./
+# Go modül dosyalarını kopyala ve bağımlılıkları indir
+COPY go.mod go.sum ./
 RUN go mod download
 
 # Tüm kaynak kodları kopyala
@@ -16,19 +17,21 @@ COPY . .
 # Uygulamayı derle
 RUN go build -o todoapp .
 
-# Son imaj için yeni bir aşama
+# Final imaj
 FROM alpine:latest
 
-# CA sertifikalarını yükle
+# Sertifikaları yükle
 RUN apk --no-cache add ca-certificates
 
+# Çalışma dizini
 WORKDIR /root/
 
-# Derlenmiş uygulamayı kopyala
+# Derlenen uygulamayı kopyala
 COPY --from=builder /app/todoapp .
 
-# Railway'in atadığı portu dinlemek için
+# Railway için port ayarla
 ENV PORT=8080
+EXPOSE 8080
 
-# Uygulamayı çalıştır
+# Uygulamayı başlat
 CMD ["./todoapp"]
