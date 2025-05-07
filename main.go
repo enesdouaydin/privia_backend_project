@@ -18,6 +18,15 @@ var jwtSecretKey = []byte("guvenli_gizli_anahtar")
 func main() {
 	router := gin.Default()
 
+	// Statik dosyaları ve HTML'i servis etmek için:
+	router.LoadHTMLGlob("*.html")        // HTML dosyalarını yükle
+	router.Static("/static", "./static") // CSS/JS dosyaları için (isteğe bağlı)
+
+	// Ana sayfa için route ekleyin:
+	router.GET("/", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "son.html", nil) // "son.html" dosyasını render et
+	})
+
 	// Sabit CORS yapılandırması - OPTIONS metodunu ve uygun başlıkları ekledik
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
@@ -27,11 +36,6 @@ func main() {
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
-	router.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"mesaj": "Todo API çalışıyor 🚀",
-		})
-	})
 
 	// Servisleri ve repository'leri başlat
 	kullaniciRepo := NewUserRepository()
@@ -41,6 +45,7 @@ func main() {
 	yapilacakService := NewTodoService(yapilacakRepo)
 
 	// Genel erişim rotaları
+
 	router.POST("/giris", func(c *gin.Context) {
 		var girisIstegi struct {
 			KullaniciAdi string `json:"username" binding:"required"`
