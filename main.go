@@ -34,9 +34,6 @@ func main() {
 		port = "8080"
 	}
 
-	// Sunucuyu başlat
-	router.Run(":" + port)
-
 	// Ana sayfa için route ekleyin:
 	router.GET("/", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "son.html", nil) // "son.html" dosyasını render et
