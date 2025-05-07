@@ -23,9 +23,9 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /app
 
 # Binary ve statik dosyaları kopyala
-COPY --from=builder /app/privia_backend .
-COPY --from=builder /app/son.html . # HTML dosyasını kopyala
-
+# Binary ve statik dosyaları kopyala
+COPY --from=builder /app/privia_backend /app/privia_backend
+COPY --from=builder /app/son.html /app/son.html 
 # Railway için gerekli ortam değişkeni
 ENV PORT=8080
 EXPOSE 8080
